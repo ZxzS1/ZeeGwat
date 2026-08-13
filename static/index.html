@@ -1,1 +1,338 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyanPlay 24/7 Game Top-Up & Wallet Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Padauk:wght@400;700&display=swap');
+        body { font-family: 'Padauk', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
 
+    <!-- Header Navigation -->
+    <nav class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('store')">
+                <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-xl text-white">
+                    🎮
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-indigo-400">MyanPlay TopUp</h1>
+                    <p class="text-xs text-slate-400">၂၄ နာရီ ဂိမ်းစိန်နှင့် Wallet ငွေဖြည့်စနစ်</p>
+                </div>
+            </div>
+
+            <!-- User Auth & Wallet Info -->
+            <div class="flex items-center space-x-3">
+                <div id="user-logged-in" class="hidden flex items-center space-x-3">
+                    <div class="text-right">
+                        <div class="text-xs text-slate-400" id="display-user-name">User</div>
+                        <div class="text-sm font-bold text-emerald-400"><i class="fa-solid fa-wallet mr-1"></i><span id="display-wallet-balance">0</span> Ks</div>
+                    </div>
+                    <button onclick="openDepositModal()" class="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg text-xs font-bold transition">
+                        <i class="fa-solid fa-plus mr-1"></i> ငွေဖြည့်
+                    </button>
+                    <button onclick="logout()" class="text-slate-400 hover:text-red-400 text-xs px-2 py-1">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+
+                <div id="user-logged-out" class="flex space-x-2">
+                    <button onclick="openAuthModal('login')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-300">
+                        Login
+                    </button>
+                    <button onclick="openAuthModal('register')" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-xs font-bold text-white">
+                        Register
+                    </button>
+                </div>
+
+                <button onclick="switchTab('track')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
+                    <i class="fa-solid fa-magnifying-glass mr-1"></i> အော်ဒါစစ်
+                </button>
+                
+                <button id="btn-admin-panel" onclick="openAdminModal()" class="hidden bg-purple-700 hover:bg-purple-600 px-3 py-1.5 rounded-lg text-xs font-bold">
+                    <i class="fa-solid fa-user-shield mr-1"></i> Admin Panel
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+
+        <!-- Store View -->
+        <div id="tab-store" class="space-y-8">
+            
+            <!-- Game Selector -->
+            <div>
+                <h2 class="text-lg font-semibold text-slate-300 mb-4"><i class="fa-solid fa-gamepad text-indigo-400 mr-2"></i>ဂိမ်း အမျိုးအစား ရွေးချယ်ပါ</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button id="btn-mlbb" onclick="selectGame('MLBB')" class="game-card bg-slate-800 border-2 border-indigo-500 p-4 rounded-xl flex flex-col items-center justify-center hover:bg-slate-700 transition">
+                        <span class="text-3xl mb-2">🛡️</span>
+                        <span class="font-bold text-white">Mobile Legends</span>
+                        <span class="text-xs text-indigo-400 mt-1">Smile.one Direct</span>
+                    </button>
+                    <button id="btn-pubg" onclick="selectGame('PUBG')" class="game-card bg-slate-800 border-2 border-transparent p-4 rounded-xl flex flex-col items-center justify-center hover:bg-slate-700 transition">
+                        <span class="text-3xl mb-2">🎯</span>
+                        <span class="font-bold text-white">PUBG Mobile</span>
+                        <span class="text-xs text-indigo-400 mt-1">Codashop Direct</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player Info Input -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4">
+                <h2 class="text-lg font-semibold text-slate-300"><i class="fa-solid fa-user-check text-indigo-400 mr-2"></i>ဂိမ်း အကောင့်အချက်အလက် ထည့်ပါ</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Player ID</label>
+                        <input type="text" id="input-player-id" placeholder="ဥပမာ - 12345678" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div id="container-zone-id">
+                        <label class="block text-sm text-slate-400 mb-1">Zone ID (Server ID)</label>
+                        <input type="text" id="input-zone-id" placeholder="ဥပမာ - 1234" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="verifyPlayerName()" class="w-full bg-slate-700 hover:bg-slate-600 text-indigo-300 font-semibold py-3 px-4 rounded-lg transition">
+                            <i class="fa-solid fa-circle-check mr-1"></i> အမည် စစ်ဆေးမည်
+                        </button>
+                    </div>
+                </div>
+                <div id="player-name-display" class="hidden text-sm p-3 bg-indigo-900/40 border border-indigo-500/30 text-indigo-300 rounded-lg">
+                    အကောင့်အမည်: <span id="verified-name" class="font-bold text-white"></span>
+                </div>
+            </div>
+
+            <!-- Package Selection Grid -->
+            <div>
+                <h2 class="text-lg font-semibold text-slate-300 mb-4"><i class="fa-solid fa-gem text-indigo-400 mr-2"></i>Package ရွေးချယ်ပါ</h2>
+                <div id="packages-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+            </div>
+
+            <!-- Checkout Section -->
+            <div id="section-checkout" class="hidden bg-slate-800 p-6 rounded-2xl border border-indigo-500/50 space-y-6">
+                <h2 class="text-lg font-bold text-indigo-400"><i class="fa-solid fa-credit-card mr-2"></i>ငွေပေးချေမှု နည်းလမ်း ရွေးချယ်ပါ</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onclick="setPaymentType('WALLET')" id="pay-type-wallet" class="p-4 rounded-xl border-2 border-indigo-500 bg-indigo-900/30 text-left">
+                        <div class="font-bold text-emerald-400"><i class="fa-solid fa-wallet mr-2"></i>App Wallet လက်ကျန်ငွေဖြင့် ပေးချေမည်</div>
+                        <div class="text-xs text-slate-400 mt-1">လက်ကျန်ငွေ: <span class="font-bold text-white" id="checkout-wallet-bal">0</span> Ks (ချက်ချင်း စိန်ဖြည့်ပေးမည်)</div>
+                    </button>
+                    <button onclick="setPaymentType('DIRECT')" id="pay-type-direct" class="p-4 rounded-xl border-2 border-slate-700 bg-slate-900 text-left">
+                        <div class="font-bold text-indigo-300"><i class="fa-solid fa-receipt mr-2"></i>KBZPay / WavePay ဖြင့် တိုက်ရိုက် လွှဲမည်</div>
+                        <div class="text-xs text-slate-400 mt-1">ငွေလွှဲပြေစာ Screenshot တင်၍ စစ်ဆေးမည်</div>
+                    </button>
+                </div>
+
+                <!-- Direct Payment Form -->
+                <div id="form-direct-payment" class="hidden bg-slate-900 p-4 rounded-xl space-y-4 text-sm">
+                    <p class="font-semibold text-indigo-300">💳 ငွေလွှဲရမည့် အကောင့်: KBZPay / WavePay (09449490500)</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-slate-400 mb-1">ငွေပေးချေသည့် နည်းလမ်း</label>
+                            <select id="direct-select-pay" class="w-full bg-slate-800 border border-slate-700 p-2.5 rounded text-white">
+                                <option value="KBZPay">KBZPay</option>
+                                <option value="WavePay">WavePay</option>
+                                <option value="AYAPay">AYA Pay</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Transaction ID (အနောက်ဆုံး ၆ လုံး)</label>
+                            <input type="text" id="direct-txn-id" placeholder="202608110948" class="w-full bg-slate-800 border border-slate-700 p-2.5 rounded text-white">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">ငွေလွှဲပြေစာ Screenshot တင်ပါ</label>
+                        <input type="file" id="direct-file-screenshot" accept="image/*" class="w-full bg-slate-800 border border-slate-700 p-2 rounded text-slate-300">
+                    </div>
+                </div>
+
+                <button onclick="submitOrder()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition">
+                    <i class="fa-solid fa-paper-plane mr-2"></i> အော်ဒါ အတည်ပြုမည်
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Order Tracking Tab -->
+        <div id="tab-track" class="hidden space-y-6">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4 max-w-xl mx-auto">
+                <h2 class="text-lg font-bold text-indigo-400"><i class="fa-solid fa-magnifying-glass mr-2"></i>အော်ဒါ အခြေအနေ စစ်ဆေးရန်</h2>
+                <div class="flex space-x-2">
+                    <input type="text" id="input-search-order" placeholder="Order ID (MP-XXXX) သို့မဟုတ် Transaction ID" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
+                    <button onclick="searchOrder()" class="bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-lg font-semibold">စစ်မည်</button>
+                </div>
+                <div id="order-result" class="hidden p-4 bg-slate-900 rounded-xl space-y-2 text-sm"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Auth Modal -->
+    <div id="modal-auth" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-md space-y-4 relative">
+            <button onclick="closeModal('modal-auth')" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h3 id="auth-title" class="text-lg font-bold text-indigo-400">အကောင့်ဝင်ပါ</h3>
+            
+            <div id="field-name" class="hidden">
+                <label class="block text-xs text-slate-400 mb-1">အမည်</label>
+                <input type="text" id="auth-input-name" placeholder="မောင်မောင်" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded text-white">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">ဖုန်းနံပါတ်</label>
+                <input type="text" id="auth-input-phone" placeholder="09449490500" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded text-white">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">စကားဝှက်</label>
+                <input type="password" id="auth-input-pass" placeholder="******" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded text-white">
+            </div>
+
+            <button onclick="submitAuth()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg font-bold">အတည်ပြုမည်</button>
+        </div>
+    </div>
+
+    <!-- Deposit Wallet Modal -->
+    <div id="modal-deposit" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-md space-y-4 relative">
+            <button onclick="closeModal('modal-deposit')" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h3 class="text-lg font-bold text-emerald-400"><i class="fa-solid fa-wallet mr-2"></i>App Wallet ငွေဖြည့်မည်</h3>
+            
+            <div class="bg-slate-900 p-3 rounded-lg text-xs space-y-1 text-slate-300">
+                <p class="font-bold text-indigo-300">💳 ငွေလွှဲရန် အကောင့်နံပါတ်: 09449490500</p>
+                <p>• KBZPay / WavePay / AYA Pay / UAB Pay</p>
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">ငွေဖြည့်မည့် ပမာဏ (ကျပ်)</label>
+                <input type="number" id="dep-amount" placeholder="10000" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded text-white">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">ငွေလွှဲခဲ့သည့် နည်းလမ်း</label>
+                <select id="dep-method" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded text-white">
+                    <option value="KBZPay">KBZPay</option>
+                    <option value="WavePay">WavePay</option>
+                    <option value="AYAPay">AYA Pay</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Transaction ID (အနောက်ဆုံး ၆ လုံး)</label>
+                <input type="text" id="dep-txn-id" placeholder="202608110948" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded text-white">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">ငွေလွှဲပြေစာ Screenshot တင်ပါ</label>
+                <input type="file" id="dep-file" accept="image/*" class="w-full bg-slate-900 border border-slate-700 p-2 rounded text-slate-300">
+            </div>
+
+            <button onclick="submitDeposit()" class="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-bold">ငွေဖြည့်မှု တောင်းဆိုမည်</button>
+        </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div id="modal-admin" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-2xl space-y-4 relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('modal-admin')" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h3 class="text-lg font-bold text-purple-400"><i class="fa-solid fa-user-shield mr-2"></i>Admin Dashboard - Screenshot စစ်ဆေးခြင်း</h3>
+            
+            <div id="admin-deposits-list" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <!-- JS Code -->
+    <script>
+        let currentUser = JSON.parse(localStorage.getItem('myanplay_user') || 'null');
+        let selectedGame = 'MLBB';
+        let selectedPackage = null;
+        let paymentType = 'WALLET';
+        let authMode = 'login';
+
+        const packagesData = [
+            { id: 'ml_weekly', game_type: 'MLBB', name: 'Weekly Diamond Pass', price_mmk: 6600 },
+            { id: 'ml_86', game_type: 'MLBB', name: '86 Diamonds', price_mmk: 5600 },
+            { id: 'ml_172', game_type: 'MLBB', name: '172 Diamonds', price_mmk: 10800 },
+            { id: 'ml_257', game_type: 'MLBB', name: '257 Diamonds', price_mmk: 16800 },
+            { id: 'pubg_60', game_type: 'PUBG', name: '60 UC', price_mmk: 4300 },
+            { id: 'pubg_325', game_type: 'PUBG', name: '325 UC', price_mmk: 22000 },
+            { id: 'pubg_660', game_type: 'PUBG', name: '660 UC', price_mmk: 43500 },
+        ];
+
+        function initApp() {
+            updateUserUI();
+            renderPackages();
+        }
+
+        function updateUserUI() {
+            if (currentUser) {
+                document.getElementById('user-logged-in').classList.remove('hidden');
+                document.getElementById('user-logged-out').classList.add('hidden');
+                document.getElementById('display-user-name').innerText = currentUser.name;
+                document.getElementById('display-wallet-balance').innerText = (currentUser.wallet_balance || 0).toLocaleString();
+                document.getElementById('checkout-wallet-bal').innerText = (currentUser.wallet_balance || 0).toLocaleString();
+                if (currentUser.role === 'ADMIN') {
+                    document.getElementById('btn-admin-panel').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('user-logged-in').classList.add('hidden');
+                document.getElementById('user-logged-out').classList.remove('hidden');
+                document.getElementById('btn-admin-panel').classList.add('hidden');
+            }
+        }
+
+        function openAuthModal(mode) {
+            authMode = mode;
+            document.getElementById('modal-auth').classList.remove('hidden');
+            document.getElementById('auth-title').innerText = mode === 'login' ? 'အကောင့်ဝင်ပါ' : 'အကောင့်သစ်ဖွင့်ပါ';
+            document.getElementById('field-name').style.display = mode === 'register' ? 'block' : 'none';
+        }
+
+        async function submitAuth() {
+            const phone = document.getElementById('auth-input-phone').value.trim();
+            const pass = document.getElementById('auth-input-pass').value.trim();
+            const name = document.getElementById('auth-input-name').value.trim();
+
+            const url = authMode === 'login' ? '/api/login' : '/api/register';
+            const body = authMode === 'login' ? { phone, password: pass } : { phone, password: pass, name };
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    localStorage.setItem('myanplay_user', JSON.stringify(currentUser));
+                    updateUserUI();
+                    closeModal('modal-auth');
+                    alert(data.message);
+                } else {
+                    alert('⚠️ ' + data.detail);
+                }
+            } catch (err) {
+                alert('Server ချိတ်ဆက်၍ မရပါ');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('myanplay_user');
+            updateUserUI();
+        }
+
+        function openDepositModal() {
+            if (!currentUser) return openAuthModal('login');
+            document.getElementById('modal-deposit').classList.remove('hidden');
+        }
+
+        async function submitDeposit() {
+            const amount = document.getElementById('dep-amount').value;
+                          
