@@ -77,7 +77,25 @@
     <!-- Package Grid -->
     <div class="card">
         <h3 style="margin-bottom:12px; font-size:14px; color:#cbd5e1;">💎 Package ရွေးချယ်ပါ</h3>
-        <div id="packages-grid" class="grid-2"></div>
+        <div id="packages-grid" class="grid-2">
+            <!-- MLBB Packages -->
+            <div class="pkg-card" onclick="choosePackage({id:'ml_weekly', name:'Weekly Diamond Pass', price_mmk:6600})">
+                <div style="font-size:12px; font-weight:bold; color:white;">Weekly Diamond Pass</div>
+                <div style="color:#a5b4fc; font-size:14px; font-weight:bold; margin-top:4px;">6,600 Ks</div>
+            </div>
+            <div class="pkg-card" onclick="choosePackage({id:'ml_86', name:'86 Diamonds', price_mmk:5600})">
+                <div style="font-size:12px; font-weight:bold; color:white;">86 Diamonds</div>
+                <div style="color:#a5b4fc; font-size:14px; font-weight:bold; margin-top:4px;">5,600 Ks</div>
+            </div>
+            <div class="pkg-card" onclick="choosePackage({id:'ml_172', name:'172 Diamonds', price_mmk:10800})">
+                <div style="font-size:12px; font-weight:bold; color:white;">172 Diamonds</div>
+                <div style="color:#a5b4fc; font-size:14px; font-weight:bold; margin-top:4px;">10,800 Ks</div>
+            </div>
+            <div class="pkg-card" onclick="choosePackage({id:'ml_257', name:'257 Diamonds', price_mmk:16800})">
+                <div style="font-size:12px; font-weight:bold; color:white;">257 Diamonds</div>
+                <div style="color:#a5b4fc; font-size:14px; font-weight:bold; margin-top:4px;">16,800 Ks</div>
+            </div>
+        </div>
     </div>
 
     <!-- Checkout -->
@@ -151,7 +169,7 @@
             { id: 'ml_257', game_type: 'MLBB', name: '257 Diamonds', price_mmk: 16800 },
             { id: 'pubg_60', game_type: 'PUBG', name: '60 UC', price_mmk: 4300 },
             { id: 'pubg_325', game_type: 'PUBG', name: '325 UC', price_mmk: 22000 },
-            { id: 'pubg_660', game_type: 'PUBG', name: '660 UC', price_mmk: 43500 },
+            { id: 'pubg_660', game_type: 'PUBG', name: '660 UC', price_mmk: 43500 }
         ];
 
         function initApp() {
@@ -292,7 +310,7 @@
                 card.onclick = function() { choosePackage(pkg); };
                 card.innerHTML = `
                     <div style="font-size:12px; font-weight:bold; color:white;">${pkg.name}</div>
-                    <div style="color:#a5b4fc; font-size:14px; font-weight:bold; margin-top:4px;">${pkg.price_mmk.toLocaleString()} Ks</div>
+                    <div style="color:#818cf8; font-size:14px; font-weight:bold; margin-top:4px;">${pkg.price_mmk.toLocaleString()} Ks</div>
                 `;
                 grid.appendChild(card);
             });
@@ -354,37 +372,4 @@
             if (paymentType === 'DIRECT') {
                 const txnId = document.getElementById('direct-txn-id').value.trim();
                 const screenshotFile = document.getElementById('direct-file-screenshot').files[0];
-                if (!txnId) return alert('Transaction ID ထည့်ပါ');
-                formData.append('transaction_id', txnId);
-                if (screenshotFile) formData.append('screenshot', screenshotFile);
-            }
-
-            try {
-                const res = await fetch('/api/orders', { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.success) {
-                    alert(`✅ အော်ဒါ အောင်မြင်ပါသည်!\nOrder ID: ${data.order.order_id}\nStatus: ${data.order.status}`);
-                    if (currentUser && paymentType === 'WALLET') {
-                        const uRes = await fetch(`/api/users/${currentUser.id}`);
-                        const uData = await uRes.json();
-                        currentUser = uData.user;
-                        localStorage.setItem('myanplay_user', JSON.stringify(currentUser));
-                        updateUserUI();
-                    }
-                } else {
-                    alert('⚠️ ' + data.detail);
-                }
-            } catch (err) {
-                alert('အော်ဒါ တင်၍ မရပါ');
-            }
-        }
-
-        function closeModal(id) {
-            const el = document.getElementById(id);
-            if (el) el.style.display = 'none';
-        }
-
-        // Run when DOM is guaranteed to be loaded
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initApp);
-     
+                if (!txnId) return alert('Transactio
