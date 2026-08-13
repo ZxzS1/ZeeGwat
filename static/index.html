@@ -156,7 +156,14 @@
     </div>
 
     <script>
-        let currentUser = JSON.parse(localStorage.getItem('myanplay_user') || 'null');
+        let currentUser = null;
+        try {
+            const rawUser = localStorage.getItem('myanplay_user');
+            if (rawUser) currentUser = JSON.parse(rawUser);
+        } catch (e) {
+            currentUser = null;
+        }
+
         let selectedGame = 'MLBB';
         let selectedPackage = null;
         let paymentType = 'WALLET';
@@ -206,9 +213,13 @@
         }
 
         async function submitAuth() {
-            const phone = document.getElementById('auth-input-phone').value.trim();
-            const pass = document.getElementById('auth-input-pass').value.trim();
-            const name = document.getElementById('auth-input-name') ? document.getElementById('auth-input-name').value.trim() : '';
+            const phoneEl = document.getElementById('auth-input-phone');
+            const passEl = document.getElementById('auth-input-pass');
+            const nameEl = document.getElementById('auth-input-name');
+
+            const phone = phoneEl ? phoneEl.value.trim() : '';
+            const pass = passEl ? passEl.value.trim() : '';
+            const name = nameEl ? nameEl.value.trim() : '';
 
             if (!phone || !pass) return alert('ဖုန်းနံပါတ်နှင့် စကားဝှက် ဖြည့်ပါ');
 
@@ -224,7 +235,7 @@
                 const data = await res.json();
                 if (data.success) {
                     currentUser = data.user;
-                    localStorage.setItem('myanplay_user', JSON.stringify(currentUser));
+                    try { localStorage.setItem('myanplay_user', JSON.stringify(currentUser)); } catch (e) {}
                     updateUserUI();
                     closeModal('modal-auth');
                     alert(data.message);
@@ -238,7 +249,7 @@
 
         function logout() {
             currentUser = null;
-            localStorage.removeItem('myanplay_user');
+            try { localStorage.removeItem('myanplay_user'); } catch (e) {}
             updateUserUI();
         }
 
@@ -367,9 +378,4 @@
             formData.append('package_name', selectedPackage.name);
             formData.append('price_mmk', selectedPackage.price_mmk);
             formData.append('payment_method', paymentType);
-            if (currentUser) formData.append('user_id', currentUser.id);
-
-            if (paymentType === 'DIRECT') {
-                const txnId = document.getElementById('direct-txn-id').value.trim();
-                const screenshotFile = document.getElementById('direct-file-screenshot').files[0];
-                if (!txnId) return alert('Transactio
+            if (currentUser) formData.append('user_id', curr
