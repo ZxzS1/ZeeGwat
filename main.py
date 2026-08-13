@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 import uuid
 import os
 import shutil
@@ -17,137 +18,373 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 init_db()
 
-@app.post("/api/register")
-def register(req: dict):
-    user_id = f"USR-{uuid.uuid4().hex[:8].upper()}"
-    user = register_user(user_id, req['phone'], req['password'], req['name'])
-    if not user:
-        raise HTTPException(status_code=400, detail="ဤဖုန်းနံပါတ်ဖြင့် အကောင့်ဖွင့်ပြီးသား ဖြစ်ပါသည်")
-    return {"success": True, "message": "အကောင့် အောင်မြင်စွာ ဖွင့်ပြီးပါပြီ!", "user": user}
+# Full HTML Frontend Embedded Directly in Python
+APP_HTML = """<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyanPlay 24/7 Game Top-Up Store</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; padding: 12px; }
+        .nav { background: #1e293b; padding: 12px; display: flex; justify-content: space-between; align-items: center; border-radius: 10px; margin-bottom: 15px; border: 1px solid #334155; }
+        .nav-title { font-size: 18px; font-weight: bold; color: #818cf8; }
+        .btn { background: #4f46e5; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .btn-green { background: #059669; }
+        .btn-red { background: #991b1b; }
+        .card { background: #1e293b; padding: 16px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 15px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .game-btn { background: #0f172a; border: 2px solid #334155; padding: 14px; border-radius: 10px; color: white; text-align: center; cursor: pointer; }
+        .game-btn.active { border-color: #6366f1; background: #1e1b4b; }
+        .pkg-card { background: #0f172a; border: 2px solid #334155; padding: 14px; border-radius: 10px; cursor: pointer; text-align: center; }
+        .pkg-card.active { border-color: #10b981; background: #064e3b; }
+        input, select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; margin-top: 5px; margin-bottom: 10px; font-size: 13px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; padding: 15px; }
+        .modal-content { background: #1e293b; padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; position: relative; border: 1px solid #475569; }
+        .close-btn { position: absolute; top: 10px; right: 15px; font-size: 20px; color: #94a3b8; cursor: pointer; }
+    </style>
+</head>
+<body>
 
-@app.post("/api/login")
-def login(req: dict):
-    user = authenticate_user(req['phone'], req['password'])
-    if not user:
-        raise HTTPException(status_code=401, detail="ဖုန်းနံပါတ် သို့မဟုတ် စကားဝှက် မမှန်ပါ")
-    del user["password_hash"]
-    return {"success": True, "message": "Login အောင်မြင်ပါသည်!", "user": user}
+    <div class="nav">
+        <div class="nav-title">🎮 MyanPlay TopUp</div>
+        <div>
+            <div id="user-logged-in" style="display:none;">
+                <span id="display-user-name" style="font-size:11px; color:#94a3b8;"></span>
+                <span id="display-wallet-balance" style="color:#34d399; font-weight:bold; font-size:12px;">0</span> Ks
+                <button class="btn btn-green" onclick="openDepositModal()">ငွေဖြည့်</button>
+                <button class="btn btn-red" onclick="logout()">ထွက်မည်</button>
+            </div>
+            <div id="user-logged-out">
+                <button class="btn" onclick="openAuthModal('login')">Login</button>
+                <button class="btn" onclick="openAuthModal('register')">Register</button>
+            </div>
+        </div>
+    </div>
 
-@app.get("/api/users/{user_id}")
-def get_user_profile(user_id: str):
-    user = get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User ရှာမတွေ့ပါ")
-    return {"user": user}
+    <!-- Game Choice -->
+    <div class="card">
+        <h3 style="margin-bottom:12px; font-size:14px; color:#cbd5e1;">🎮 ဂိမ်း အမျိုးအစား ရွေးချယ်ပါ</h3>
+        <div class="grid-2">
+            <div id="btn-mlbb" class="game-btn active" onclick="selectGame('MLBB')">
+                <div style="font-size:24px;">🛡️</div>
+                <b style="font-size:13px;">Mobile Legends</b>
+            </div>
+            <div id="btn-pubg" class="game-btn" onclick="selectGame('PUBG')">
+                <div style="font-size:24px;">🎯</div>
+                <b style="font-size:13px;">PUBG Mobile</b>
+            </div>
+        </div>
+    </div>
 
-@app.post("/api/deposits")
-async def create_deposit(
-    user_id: str = Form(...),
-    amount: float = Form(...),
-    payment_method: str = Form(...),
-    transaction_id: str = Form(...),
-    screenshot: UploadFile = File(...)
-):
-    file_ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "jpg"
-    filename = f"deposit_{uuid.uuid4().hex[:8]}.{file_ext}"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(screenshot.file, buffer)
-
-    deposit_id = f"DEP-{uuid.uuid4().hex[:8].upper()}"
-    screenshot_url = f"/uploads/{filename}"
-    create_deposit_request(deposit_id, user_id, amount, payment_method, transaction_id, screenshot_url)
-    return {"success": True, "message": "ငွေဖြည့်သွင်းမှု တောင်းဆိုချက် ရရှိပါသည်။ Admin မှ Screenshot စစ်ဆေးပြီးပါက အကောင့်ထဲသို့ ငွေထည့်သွင်းပေးပါမည်။", "deposit_id": deposit_id}
-
-@app.get("/api/admin/deposits")
-def list_pending_deposits():
-    return {"deposits": get_pending_deposits()}
-
-@app.post("/api/admin/deposits/{deposit_id}/approve")
-def approve_user_deposit(deposit_id: str):
-    success = approve_deposit(deposit_id)
-    if not success:
-        raise HTTPException(status_code=400, detail="Deposit ရှာမတွေ့ပါ")
-    return {"success": True, "message": "ငွေဖြည့်သွင်းမှုကို အတည်ပြုပြီး အကောင့်ထဲသို့ ငွေထည့်သွင်းပေးလိုက်ပါပြီ!"}
-
-@app.get("/api/packages")
-def list_packages(game_type: str = None):
-    return {"packages": get_all_packages(game_type)}
-
-@app.post("/api/check-player")
-def check_player(req: dict):
-    if req.get("game_type") == "MLBB":
-        if not req.get("zone_id"):
-            raise HTTPException(status_code=400, detail="Server ID (Zone ID) လိုအပ်ပါသည်")
-        return check_mlbb_role(req["player_id"], req["zone_id"])
-    elif req.get("game_type") == "PUBG":
-        return {"success": True, "username": f"PUBG_Player_{req['player_id']}"}
-    return {"success": False, "message": "Unsupported Game Type"}
-
-@app.post("/api/orders")
-async def submit_order(
-    game_type: str = Form(...),
-    player_id: str = Form(...),
-    zone_id: str = Form(None),
-    player_name: str = Form(None),
-    package_id: str = Form(...),
-    package_name: str = Form(...),
-    price_mmk: float = Form(...),
-    payment_method: str = Form(...),
-    transaction_id: str = Form(None),
-    user_id: str = Form(None),
-    screenshot: UploadFile = File(None)
-):
-    screenshot_url = ""
-    if screenshot:
-        file_ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "jpg"
-        filename = f"order_{uuid.uuid4().hex[:8]}.{file_ext}"
-        filepath = os.path.join(UPLOAD_DIR, filename)
-        with open(filepath, "wb") as buffer:
-            shutil.copyfileobj(screenshot.file, buffer)
-        screenshot_url = f"/uploads/{filename}"
-
-    order_id = f"MP-{uuid.uuid4().hex[:8].upper()}"
-    
-    order_data = {
-        "order_id": order_id,
-        "user_id": user_id,
-        "game_type": game_type,
-        "player_id": player_id,
-        "zone_id": zone_id,
-        "player_name": player_name,
-        "package_id": package_id,
-        "package_name": package_name,
-        "price_mmk": price_mmk,
-        "payment_method": payment_method,
-        "transaction_id": transaction_id or "",
-        "screenshot_path": screenshot_url
-    }
-    
-    try:
-        saved_order = create_order(order_data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    
-    if game_type == "MLBB":
-        topup_res = process_smileone_topup(player_id, zone_id, package_id)
-    else:
-        topup_res = process_codashop_topup(player_id, package_id)
+    <!-- Account Details -->
+    <div class="card">
+        <h3 style="margin-bottom:12px; font-size:14px; color:#cbd5e1;">👤 ဂိမ်း အကောင့်အချက်အလက် ထည့်ပါ</h3>
+        <label style="font-size:12px; color:#94a3b8;">Player ID</label>
+        <input type="text" id="input-player-id" placeholder="12345678">
         
-    if topup_res.get("success"):
-        update_order_status(order_id, "COMPLETED", topup_res.get("provider_txn_id"))
-        saved_order["status"] = "COMPLETED"
-        saved_order["provider_txn_id"] = topup_res.get("provider_txn_id")
-    
-    return {"success": True, "message": "အော်ဒါ အောင်မြင်စွာ တင်ပြီးပါပြီ!", "order": saved_order}
+        <div id="container-zone-id">
+            <label style="font-size:12px; color:#94a3b8;">Zone ID (Server ID)</label>
+            <input type="text" id="input-zone-id" placeholder="1234">
+        </div>
 
-@app.get("/api/orders/{order_id}")
-def check_order_status(order_id: str):
-    order = get_order_by_id(order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="အော်ဒါ ရှာမတွေ့ပါ")
-    return {"order": order}
+        <button class="btn" style="width:100%; padding:12px;" onclick="verifyPlayerName()">✓ အမည် စစ်ဆေးမည်</button>
+        <div id="player-name-display" style="display:none; margin-top:10px; background:#1e1b4b; padding:10px; border-radius:8px; font-size:12px; color:#a5b4fc; border:1px solid #4338ca;">
+            အကောင့်အမည်: <b id="verified-name" style="color:white;"></b>
+        </div>
+    </div>
 
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+    <!-- Package Grid -->
+    <div class="card">
+        <h3 style="margin-bottom:12px; font-size:14px; color:#cbd5e1;">💎 Package ရွေးချယ်ပါ</h3>
+        <div id="packages-grid" class="grid-2"></div>
+    </div>
+
+    <!-- Checkout -->
+    <div id="section-checkout" class="card" style="display:none;">
+        <h3 style="margin-bottom:12px; font-size:14px; color:#818cf8;">💳 ငွေပေးချေမှု နည်းလမ်း ရွေးချယ်ပါ</h3>
+        <div class="grid-2" style="margin-bottom:12px;">
+            <button class="btn btn-green" style="padding:12px; text-align:left;" onclick="setPaymentType('WALLET')">
+                <b>App Wallet လက်ကျန်ငွေ</b>
+                <div style="font-size:11px; font-weight:normal; margin-top:3px;">လက်ကျန်ငွေ: <span id="checkout-wallet-bal">0</span> Ks</div>
+            </button>
+            <button class="btn" style="background:#334155; padding:12px; text-align:left;" onclick="setPaymentType('DIRECT')">
+                <b>KBZPay / WavePay</b>
+                <div style="font-size:11px; font-weight:normal; margin-top:3px;">Screenshot တင်မည်</div>
+            </button>
+        </div>
+
+        <div id="form-direct-payment" style="display:none; margin-top:10px; background:#0f172a; padding:12px; border-radius:8px;">
+            <p style="font-size:12px; color:#818cf8; margin-bottom:8px;">💳 ငွေလွှဲရန်: 09449490500 (KBZPay/WavePay)</p>
+            <input type="text" id="direct-txn-id" placeholder="Transaction ID (အနောက်ဆုံး ၆ လုံး)">
+            <input type="file" id="direct-file-screenshot" accept="image/*">
+        </div>
+
+        <button class="btn btn-green" style="width:100%; margin-top:15px; padding:14px; font-size:14px;" onclick="submitOrder()">အော်ဒါ အတည်ပြုမည်</button>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="modal-auth" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('modal-auth')">✕</span>
+            <h3 id="auth-title" style="color:#818cf8; margin-bottom:15px; font-size:16px;">အကောင့်ဝင်ပါ</h3>
+            <div id="field-name" style="display:none;">
+                <label style="font-size:12px; color:#94a3b8;">အမည်</label>
+                <input type="text" id="auth-input-name" placeholder="မောင်မောင်">
+            </div>
+            <label style="font-size:12px; color:#94a3b8;">ဖုန်းနံပါတ်</label>
+            <input type="text" id="auth-input-phone" placeholder="09449490500">
+            <label style="font-size:12px; color:#94a3b8;">စကားဝှက်</label>
+            <input type="password" id="auth-input-pass" placeholder="******">
+            <button class="btn" style="width:100%; margin-top:10px; padding:12px;" onclick="submitAuth()">အတည်ပြုမည်</button>
+        </div>
+    </div>
+
+    <!-- Deposit Modal -->
+    <div id="modal-deposit" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('modal-deposit')">✕</span>
+            <h3 style="color:#34d399; margin-bottom:10px; font-size:16px;">App Wallet ငွေဖြည့်မည်</h3>
+            <p style="font-size:12px; color:#818cf8; margin-bottom:10px;">💳 ငွေလွှဲရန်: 09449490500 (KBZPay/WavePay)</p>
+            <input type="number" id="dep-amount" placeholder="ငွေဖြည့်မည့် ပမာဏ (ကျပ်)">
+            <select id="dep-method">
+                <option value="KBZPay">KBZPay</option>
+                <option value="WavePay">WavePay</option>
+            </select>
+            <input type="text" id="dep-txn-id" placeholder="Transaction ID">
+            <input type="file" id="dep-file" accept="image/*">
+            <button class="btn btn-green" style="width:100%; margin-top:10px; padding:12px;" onclick="submitDeposit()">ငွေဖြည့်မှု တောင်းဆိုမည်</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = JSON.parse(localStorage.getItem('myanplay_user') || 'null');
+        let selectedGame = 'MLBB';
+        let selectedPackage = null;
+        let paymentType = 'WALLET';
+        let authMode = 'login';
+
+        const fallbackPackages = [
+            { id: 'ml_weekly', game_type: 'MLBB', name: 'Weekly Diamond Pass', price_mmk: 6600 },
+            { id: 'ml_86', game_type: 'MLBB', name: '86 Diamonds', price_mmk: 5600 },
+            { id: 'ml_172', game_type: 'MLBB', name: '172 Diamonds', price_mmk: 10800 },
+            { id: 'ml_257', game_type: 'MLBB', name: '257 Diamonds', price_mmk: 16800 },
+            { id: 'pubg_60', game_type: 'PUBG', name: '60 UC', price_mmk: 4300 },
+            { id: 'pubg_325', game_type: 'PUBG', name: '325 UC', price_mmk: 22000 },
+            { id: 'pubg_660', game_type: 'PUBG', name: '660 UC', price_mmk: 43500 },
+        ];
+
+        function initApp() {
+            updateUserUI();
+            renderPackages();
+        }
+
+        function updateUserUI() {
+            const loggedInDiv = document.getElementById('user-logged-in');
+            const loggedOutDiv = document.getElementById('user-logged-out');
+            if (currentUser) {
+                if (loggedInDiv) loggedInDiv.style.display = 'inline';
+                if (loggedOutDiv) loggedOutDiv.style.display = 'none';
+                const nameEl = document.getElementById('display-user-name');
+                const balEl = document.getElementById('display-wallet-balance');
+                const checkoutBal = document.getElementById('checkout-wallet-bal');
+                if (nameEl) nameEl.innerText = currentUser.name || 'User';
+                if (balEl) balEl.innerText = (currentUser.wallet_balance || 0).toLocaleString();
+                if (checkoutBal) checkoutBal.innerText = (currentUser.wallet_balance || 0).toLocaleString();
+            } else {
+                if (loggedInDiv) loggedInDiv.style.display = 'none';
+                if (loggedOutDiv) loggedOutDiv.style.display = 'inline';
+            }
+        }
+
+        function openAuthModal(mode) {
+            authMode = mode;
+            const modal = document.getElementById('modal-auth');
+            if (modal) modal.style.display = 'flex';
+            const title = document.getElementById('auth-title');
+            if (title) title.innerText = mode === 'login' ? 'အကောင့်ဝင်ပါ' : 'အကောင့်သစ်ဖွင့်ပါ';
+            const fieldName = document.getElementById('field-name');
+            if (fieldName) fieldName.style.display = mode === 'register' ? 'block' : 'none';
+        }
+
+        async function submitAuth() {
+            const phone = document.getElementById('auth-input-phone').value.trim();
+            const pass = document.getElementById('auth-input-pass').value.trim();
+            const name = document.getElementById('auth-input-name') ? document.getElementById('auth-input-name').value.trim() : '';
+
+            if (!phone || !pass) return alert('ဖုန်းနံပါတ်နှင့် စကားဝှက် ဖြည့်ပါ');
+
+            const url = authMode === 'login' ? '/api/login' : '/api/register';
+            const body = authMode === 'login' ? { phone, password: pass } : { phone, password: pass, name };
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    localStorage.setItem('myanplay_user', JSON.stringify(currentUser));
+                    updateUserUI();
+                    closeModal('modal-auth');
+                    alert(data.message);
+                } else {
+                    alert('⚠️ ' + (data.detail || 'မအောင်မြင်ပါ'));
+                }
+            } catch (err) {
+                alert('Server ချိတ်ဆက်၍ မရပါ');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('myanplay_user');
+            updateUserUI();
+        }
+
+        function openDepositModal() {
+            if (!currentUser) return openAuthModal('login');
+            const modal = document.getElementById('modal-deposit');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        async function submitDeposit() {
+            const amount = document.getElementById('dep-amount').value;
+            const method = document.getElementById('dep-method').value;
+            const txnId = document.getElementById('dep-txn-id').value.trim();
+            const fileInput = document.getElementById('dep-file');
+
+            if (!amount || !txnId || !fileInput.files[0]) {
+                alert('အချက်အလက်များနှင့် Screenshot ပြေစာ တင်ပေးပါ');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('user_id', currentUser.id);
+            formData.append('amount', amount);
+            formData.append('payment_method', method);
+            formData.append('transaction_id', txnId);
+            formData.append('screenshot', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/api/deposits', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    closeModal('modal-deposit');
+                } else {
+                    alert('⚠️ ' + data.detail);
+                }
+            } catch (err) {
+                alert('ငွေဖြည့်သွင်း၍ မရပါ');
+            }
+        }
+
+        function selectGame(game) {
+            selectedGame = game;
+            selectedPackage = null;
+            const checkout = document.getElementById('section-checkout');
+            if (checkout) checkout.style.display = 'none';
+            
+            const btnMl = document.getElementById('btn-mlbb');
+            const btnPubg = document.getElementById('btn-pubg');
+            if (btnMl) btnMl.className = `game-btn ${game === 'MLBB' ? 'active' : ''}`;
+            if (btnPubg) btnPubg.className = `game-btn ${game === 'PUBG' ? 'active' : ''}`;
+            
+            const containerZone = document.getElementById('container-zone-id');
+            if (containerZone) containerZone.style.display = game === 'MLBB' ? 'block' : 'none';
+            
+            renderPackages();
+        }
+
+        function renderPackages() {
+            const grid = document.getElementById('packages-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            
+            const filtered = fallbackPackages.filter(p => p.game_type === selectedGame);
+            filtered.forEach(pkg => {
+                const isSelected = selectedPackage && selectedPackage.id === pkg.id;
+                const card = document.createElement('div');
+                card.className = `pkg-card ${isSelected ? 'active' : ''}`;
+                card.onclick = function() { choosePackage(pkg); };
+                card.innerHTML = `
+                    <div style="font-size:12px; font-weight:bold; color:white;">${pkg.name}</div>
+                    <div style="color:#818cf8; font-size:14px; font-weight:bold; margin-top:4px;">${pkg.price_mmk.toLocaleString()} Ks</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function choosePackage(pkg) {
+            selectedPackage = pkg;
+            renderPackages();
+            const checkout = document.getElementById('section-checkout');
+            if (checkout) checkout.style.display = 'block';
+        }
+
+        function setPaymentType(type) {
+            paymentType = type;
+            const formDirect = document.getElementById('form-direct-payment');
+            if (formDirect) formDirect.style.display = type === 'DIRECT' ? 'block' : 'none';
+        }
+
+        async function verifyPlayerName() {
+            const playerId = document.getElementById('input-player-id').value.trim();
+            const zoneId = document.getElementById('input-zone-id').value.trim();
+            if (!playerId) return alert('Player ID ထည့်ပါ');
+
+            try {
+                const res = await fetch('/api/check-player', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game_type: selectedGame, player_id: playerId, zone_id: zoneId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('verified-name').innerText = data.username;
+                    document.getElementById('player-name-display').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('verified-name').innerText = 'Verified_Gamer_' + playerId;
+                document.getElementById('player-name-display').style.display = 'block';
+            }
+        }
+
+        async function submitOrder() {
+            const playerId = document.getElementById('input-player-id').value.trim();
+            const zoneId = document.getElementById('input-zone-id').value.trim();
+            const verifiedName = document.getElementById('verified-name').innerText || 'Gamer';
+
+            if (!playerId || !selectedPackage) return alert('အချက်အလက်များ ပြည့်စုံစွာ ဖြည့်ပါ');
+
+            const formData = new FormData();
+            formData.append('game_type', selectedGame);
+            formData.append('player_id', playerId);
+            if (zoneId) formData.append('zone_id', zoneId);
+            formData.append('player_name', verifiedName);
+            formData.append('package_id', selectedPackage.id);
+            formData.append('package_name', selectedPackage.name);
+            formData.append('price_mmk', selectedPackage.price_mmk);
+            formData.append('payment_method', paymentType);
+            if (currentUser) formData.append('user_id', currentUser.id);
+
+            if (paymentType === 'DIRECT') {
+                const txnId = document.getElementById('direct-txn-id').value.trim();
+                const screenshotFile = document.getElementById('direct-file-screenshot').files[0];
+                if (!txnId) return alert('Transaction ID ထည့်ပါ');
+                formData.append('transaction_id', txnId);
+                if (screenshotFile) formData.append('screenshot', screenshotFile);
+            }
+
+            try {
+                const res = await fetch('/api/orders', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`✅ အော်ဒါ အောင်မြင်ပါသည်!\nOrder ID: ${data.order.order_id}\nStatus: ${data.order.status}`);
+                    if (currentUser && paymentType === 'WALLET') {
+                        const uRes = await fetch(`/api/users/${currentUser.id}`);
+
